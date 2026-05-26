@@ -1,41 +1,44 @@
 # Bag AR Try-On — WebXR
 
-App de AR para a bolsa, refeito em WebXR (sem Scene Viewer).
+Versão simples, sem 8th Wall e sem build, baseada no mesmo padrão WebXR do protótipo de quadro/poster.
 
-## Por que foi refeito
+## Estrutura
 
-O app antigo usava o Scene Viewer do Google. Os testes mostraram que o
-Scene Viewer parou de funcionar em 3 aparelhos, em 2 redes, inclusive com
-um modelo oficial do Google — ou seja, o Scene Viewer em si quebrou, e
-nenhum código alcança esse problema.
+Coloque tudo na raiz do repositório:
 
-Esta versão usa WebXR, que fala direto com o ARCore (que está instalado e
-funcionando nos aparelhos) sem passar pelo Scene Viewer. É a mesma base
-do app de quadros, que funciona.
-
-## Arquivos (todos juntos na raiz)
-
-    index.html    <- página com QR code
-    ar.html       <- experiência de AR (WebXR)
-    bag.glb       <- modelo 3D da bolsa (otimizado: 12 MB -> 4,3 MB)
-    vercel.json   <- MIME type correto para .glb
+    bag-webxr/
+    ├── index.html
+    ├── ar.html
+    ├── bag.glb
+    └── vercel.json
 
 ## Como funciona
 
-- Posicionamento no CHÃO / MESA (superfície horizontal).
-- O usuário mira, a mira verde gruda na superfície, toca para fixar.
-- Ao fixar, a bolsa CONGELA no lugar (não voa, não pula).
-- A bolsa fica sempre em pé (só o giro horizontal é aplicado).
-- Botão Reposition remove e deixa posicionar de novo.
+- `index.html` gera o QR Code para `ar.html`.
+- `ar.html` abre uma sessão WebXR `immersive-ar`.
+- O tracking usa WebXR hit-test direto do ARCore.
+- O app filtra superfícies horizontais, como chão, mesa e bancada.
+- Toque para posicionar a bolsa.
+- Depois de posicionar, use:
+  - `Reposicionar`
+  - `↺` e `↻` para girar
+  - `−` e `+` para ajustar escala
 
 ## Deploy
 
-1. Novo repositório no GitHub, os 4 arquivos na raiz.
-2. Commit + push. Importe no Vercel (Framework: Other, sem build).
-3. Abra a URL no desktop -> QR aparece.
-4. Escaneie no Android com Chrome.
+No Vercel:
 
-## Limitações
+- Framework Preset: Other
+- Sem build
+- Sem output directory
 
-- iPhone não roda (Safari não suporta WebXR AR).
-- Detecção depende de boa luz e de chão/mesa com alguma textura.
+Basta subir os arquivos na raiz. O `vercel.json` garante o MIME type correto do `.glb`.
+
+## Ajustes principais no topo do `ar.html`
+
+- `MODEL_URL = './bag.glb'`
+- `MODEL_SCALE = 1.0`
+- `MODEL_REAL_SIZE = null`
+- `HORIZONTAL_DOT_MIN = 0.72`
+
+Se a bolsa vier muito grande/pequena, ajuste `MODEL_SCALE` ou use `MODEL_REAL_SIZE`.

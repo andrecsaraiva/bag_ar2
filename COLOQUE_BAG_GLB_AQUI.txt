@@ -1,0 +1,5 @@
+Coloque o modelo da bolsa na raiz com o nome:
+
+bag.glb
+
+Se quiser outro nome, edite MODEL_URL no topo do ar.html.

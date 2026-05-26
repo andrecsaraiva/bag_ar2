@@ -1,75 +1,125 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>AR Try-On — Bag</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Bag AR Try-On — WebXR</title>
 <style>
   :root { color-scheme: dark; }
-  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body { height:100%; background:#0d0d0f; font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif; color:#fff; overflow:hidden; }
-
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; background: #0d0d0f; font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    color: #fff; overflow: hidden;
+  }
   #intro {
-    position:fixed; inset:0; z-index:30;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    text-align:center; padding:32px; gap:18px;
-    background:radial-gradient(circle at 50% 30%, #1c1c22, #0d0d0f);
+    position: fixed; inset: 0; z-index: 30;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 32px; gap: 18px;
+    background: radial-gradient(circle at 50% 30%, #1c1c22, #0d0d0f);
   }
-  #intro h1 { font-size:22px; font-weight:650; }
-  #intro p { font-size:14px; line-height:1.5; color:#a8a8b0; max-width:320px; }
+  #intro h1 { font-size: 22px; font-weight: 650; }
+  #intro p { font-size: 14px; line-height: 1.5; color: #a8a8b0; max-width: 340px; }
   #startBtn {
-    margin-top:8px; padding:15px 34px; font-size:16px; font-weight:600;
-    border:none; border-radius:100px; background:#f5f3ee; color:#16161a; cursor:pointer;
+    margin-top: 8px; padding: 15px 34px; font-size: 16px; font-weight: 600;
+    border: none; border-radius: 100px; background: #f5f3ee; color: #16161a; cursor: pointer;
   }
-  #startBtn:active { transform:scale(0.97); }
-  #unsupported { display:none; color:#ff8a80; font-size:13px; max-width:320px; }
+  #startBtn:active { transform: scale(0.97); }
+  #unsupported { display: none; color: #ff8a80; font-size: 13px; max-width: 340px; }
 
-  #hud { position:fixed; inset:0; z-index:20; display:none; pointer-events:none; }
+  #hud { position: fixed; inset: 0; z-index: 20; display: none; pointer-events: none; }
   #status {
-    position:absolute; top:env(safe-area-inset-top,14px); left:50%;
-    transform:translateX(-50%); margin-top:14px;
-    background:rgba(0,0,0,0.62); backdrop-filter:blur(8px);
-    padding:9px 18px; border-radius:100px; font-size:13px; white-space:nowrap;
-  }
-  #exitBtn {
-    position:absolute; top:env(safe-area-inset-top,14px); right:14px; margin-top:14px;
-    width:38px; height:38px; border-radius:50%; pointer-events:auto;
-    background:rgba(0,0,0,0.62); border:none; color:#fff; font-size:18px; cursor:pointer;
-  }
-  #toast {
-    position:absolute; bottom:150px; left:50%; transform:translateX(-50%);
-    background:rgba(0,0,0,0.8); padding:8px 16px; border-radius:100px;
-    font-size:12px; opacity:0; transition:opacity .25s; white-space:nowrap;
+    position: absolute; top: env(safe-area-inset-top, 14px); left: 50%;
+    transform: translateX(-50%); margin-top: 14px;
+    background: rgba(0,0,0,0.62); backdrop-filter: blur(8px);
+    padding: 9px 18px; border-radius: 100px; font-size: 13px; white-space: nowrap;
   }
   #bottomBar {
-    position:absolute; left:0; right:0; bottom:0;
-    padding:14px 16px calc(env(safe-area-inset-bottom,16px) + 14px);
-    display:flex; gap:10px; justify-content:center; pointer-events:auto;
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 16px 16px calc(env(safe-area-inset-bottom, 16px) + 16px);
+    display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; pointer-events: auto;
   }
   .pill {
-    padding:13px 20px; font-size:14px; font-weight:600; border-radius:100px;
-    border:1px solid rgba(255,255,255,0.18); background:rgba(20,20,24,0.78);
-    backdrop-filter:blur(8px); color:#fff; cursor:pointer;
+    padding: 13px 18px; font-size: 14px; font-weight: 650; border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.18); background: rgba(20,20,24,0.78);
+    backdrop-filter: blur(8px); color: #fff; cursor: pointer;
   }
-  .pill:active { transform:scale(0.96); }
-  .pill.hidden { display:none; }
+  .pill:active { transform: scale(0.96); }
+  .pill.hidden { display: none; }
+  .pill.light { background: #f5f3ee; color: #16161a; }
+  #exitBtn {
+    position: absolute; top: env(safe-area-inset-top, 14px); right: 14px; margin-top: 14px;
+    width: 38px; height: 38px; border-radius: 50%; pointer-events: auto;
+    background: rgba(0,0,0,0.62); border: none; color: #fff; font-size: 18px; cursor: pointer;
+  }
+  #toast {
+    position: absolute; bottom: 112px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 100px;
+    font-size: 12px; opacity: 0; transition: opacity .25s; white-space: nowrap;
+  }
+  #debugPanel {
+    position: absolute; left: 8px; right: 8px;
+    top: calc(env(safe-area-inset-top, 14px) + 60px);
+    height: 40vh; display: flex; flex-direction: column;
+    background: rgba(0,0,0,0.82); border: 1px solid rgba(124,255,178,0.4);
+    border-radius: 10px; pointer-events: auto; overflow: hidden;
+  }
+  #debugLog {
+    flex: 1; overflow-y: auto; padding: 8px 10px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10px; line-height: 1.45; color: #b9f5cf;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  #debugLog .warn { color: #ffd27c; }
+  #debugLog .err  { color: #ff8a80; }
+  #debugLog .ok   { color: #7CFFB2; }
+  #debugBtns { display: flex; border-top: 1px solid rgba(255,255,255,0.12); }
+  .dbg {
+    flex: 1; padding: 10px 4px; font-size: 12px; font-weight: 600;
+    background: rgba(20,20,24,0.9); color: #fff; border: none;
+    border-right: 1px solid rgba(255,255,255,0.1); cursor: pointer;
+  }
+  .dbg:last-child { border-right: none; }
+  .dbg:active { background: rgba(124,255,178,0.2); }
+  #showLogBtn {
+    position: absolute; left: 14px;
+    top: calc(env(safe-area-inset-top, 14px) + 14px);
+    padding: 7px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+    background: rgba(0,0,0,0.62); border: 1px solid rgba(124,255,178,0.5);
+    color: #7CFFB2; border-radius: 8px; pointer-events: auto; cursor: pointer;
+  }
+  #debugPanel.hidden, #showLogBtn.hidden { display: none; }
 </style>
 </head>
 <body>
 
 <div id="intro">
-  <h1>Bag Try-On</h1>
-  <p>Point the camera at the <b>floor or a table</b> where you want to place the bag. Move the phone slowly so AR can detect the surface, then tap to place it.</p>
-  <button id="startBtn">Start camera</button>
-  <p id="unsupported">⚠️ This device/browser does not support WebXR AR.<br>Use <b>Google Chrome</b> on an Android device with ARCore.</p>
+  <h1>Try-On de Bolsa</h1>
+  <p>Aponte a câmera para uma <b>superfície horizontal</b>, como chão, mesa ou bancada. Mova o celular devagar para o AR reconhecer a superfície, depois toque para posicionar a bolsa.</p>
+  <button id="startBtn">Iniciar câmera</button>
+  <p id="unsupported">⚠️ Este aparelho/navegador não suporta WebXR AR.<br>Use o <b>Google Chrome</b> num Android com ARCore.</p>
 </div>
 
 <div id="hud">
-  <div id="status">Starting…</div>
+  <div id="status">Iniciando…</div>
   <button id="exitBtn">✕</button>
   <div id="toast"></div>
+
+  <div id="debugPanel">
+    <div id="debugLog"></div>
+    <div id="debugBtns">
+      <button class="dbg" id="copyLogBtn">Copiar log</button>
+      <button class="dbg" id="clearLogBtn">Limpar</button>
+      <button class="dbg" id="hideLogBtn">Ocultar</button>
+    </div>
+  </div>
+  <button id="showLogBtn">LOG</button>
+
   <div id="bottomBar">
-    <button class="pill hidden" id="resetBtn">Reposition</button>
+    <button class="pill hidden" id="resetBtn">Reposicionar</button>
+    <button class="pill hidden" id="rotateLeftBtn">↺</button>
+    <button class="pill hidden" id="rotateRightBtn">↻</button>
+    <button class="pill hidden light" id="scaleDownBtn">−</button>
+    <button class="pill hidden light" id="scaleUpBtn">+</button>
   </div>
 </div>
 
@@ -87,13 +137,26 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // ===================== CONFIG =====================
-const MODEL_URL = './bag.glb';
-// How "horizontal" a surface must be to count as floor/table.
-// 1 = perfectly horizontal. 0.82 ~= tolerates ~35deg of tilt.
-const HORIZONTAL_DOT_MIN = 0.82;
-// keep last good pose this long (ms) after a tracking drop
-const HOLD_MS = 600;
-const SMOOTH = 0.35;
+// Coloque o GLB da bolsa na raiz com este nome.
+const MODEL_URL  = './bag.glb';
+
+// Escala do GLB. Se vier muito grande/pequeno, ajuste aqui.
+const MODEL_SCALE = 1.0;
+
+// Tamanho real opcional. Deixe null para usar o tamanho nativo.
+// Exemplo: { width: 0.38 } força a largura para 38 cm.
+const MODEL_REAL_SIZE = null;
+
+// Centraliza em X/Z e apoia a base no Y=0.
+const MODEL_AUTOCENTER_XZ = true;
+
+// Superfície horizontal: 1 = perfeitamente para cima.
+// 0.72 aceita chão/mesa com alguma inclinação.
+const HORIZONTAL_DOT_MIN = 0.72;
+
+const SURFACE_OFFSET = 0.006;
+const ROTATE_STEP = THREE.MathUtils.degToRad(15);
+const SCALE_STEP = 1.10;
 // ==================================================
 
 const statusEl = document.getElementById('status');
@@ -103,25 +166,68 @@ const toastEl  = document.getElementById('toast');
 const startBtn = document.getElementById('startBtn');
 const exitBtn  = document.getElementById('exitBtn');
 const resetBtn = document.getElementById('resetBtn');
+const rotateLeftBtn = document.getElementById('rotateLeftBtn');
+const rotateRightBtn = document.getElementById('rotateRightBtn');
+const scaleDownBtn = document.getElementById('scaleDownBtn');
+const scaleUpBtn = document.getElementById('scaleUpBtn');
+
+const debugPanel = document.getElementById('debugPanel');
+const debugLogEl = document.getElementById('debugLog');
+const DBG = {
+  lines: [],
+  max: 400,
+  t0: performance.now(),
+  push(msg, cls){
+    const t = ((performance.now() - this.t0) / 1000).toFixed(2);
+    const entry = '[' + t + 's] ' + msg;
+    this.lines.push({ text: entry, cls: cls || '' });
+    if (this.lines.length > this.max) this.lines.shift();
+    this.render();
+  },
+  render(){
+    if (!debugLogEl) return;
+    debugLogEl.innerHTML = this.lines
+      .map(l => l.cls ? '<span class="'+l.cls+'">'+esc(l.text)+'</span>' : esc(l.text))
+      .join('\n');
+    debugLogEl.scrollTop = debugLogEl.scrollHeight;
+  },
+  text(){ return this.lines.map(l => l.text).join('\n'); }
+};
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+document.getElementById('showLogBtn').addEventListener('click', ()=>{
+  debugPanel.classList.remove('hidden');
+  document.getElementById('showLogBtn').classList.add('hidden');
+});
+document.getElementById('hideLogBtn').addEventListener('click', ()=>{
+  debugPanel.classList.add('hidden');
+  document.getElementById('showLogBtn').classList.remove('hidden');
+});
+document.getElementById('clearLogBtn').addEventListener('click', ()=>{ DBG.lines = []; DBG.render(); });
+document.getElementById('copyLogBtn').addEventListener('click', async ()=>{
+  const txt = DBG.text();
+  try { await navigator.clipboard.writeText(txt); toast('Log copiado — cole no chat'); }
+  catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = txt; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('Log copiado'); }
+    catch(e2){ toast('Copie manualmente do painel'); }
+    document.body.removeChild(ta);
+  }
+});
 
 let renderer, scene, camera;
-let reticle, bagModel, bagPlaced = false;
-let modelTemplate = null;
+let reticle, footprintPreview, bagModel, bagPlaced = false;
 let xrSession = null, xrRefSpace = null, viewerSpace = null;
 let hitTestSource = null;
+let modelTemplate = null;
 let toastTimer = null;
 
-// frozen pose of the placed bag (set once on tap, never recomputed)
-let placedPose = new THREE.Matrix4();
-
-// UI tap guard: tapping a button also fires WebXR 'select'
-let uiTapUntil = 0;
-function markUITap(){ uiTapUntil = performance.now() + 400; }
-
-// tracking smoothing
-let lastPose = null, lastPoseTime = -1e9;
-const _smP = new THREE.Vector3(), _smQ = new THREE.Quaternion(), _smS = new THREE.Vector3();
-const _tgP = new THREE.Vector3(), _tgQ = new THREE.Quaternion();
+let modelSize = { width: 0.4, height: 0.35, depth: 0.16 };
+let modelYaw = 0;
+let modelScaleMultiplier = 1.0;
+let lastPlacementMatrix = new THREE.Matrix4();
 
 function setStatus(t){ statusEl.textContent = t; }
 function toast(t){
@@ -135,34 +241,85 @@ async function checkSupport(){
   try { return await navigator.xr.isSessionSupported('immersive-ar'); }
   catch(e){ return false; }
 }
+
 checkSupport().then(ok => {
+  DBG.push('=== Bag WebXR Try-On debug ===');
+  DBG.push('UA: ' + navigator.userAgent);
+  DBG.push('WebXR immersive-ar suportado: ' + ok, ok ? 'ok' : 'err');
+  DBG.push('tela: ' + innerWidth + 'x' + innerHeight + ' dpr=' + devicePixelRatio);
   if (!ok){
     startBtn.style.display = 'none';
     document.getElementById('unsupported').style.display = 'block';
   }
 });
 
-// ---- load the GLB ----
 function preloadModel(){
+  DBG.push('carregando GLB: ' + MODEL_URL);
   return new Promise((resolve, reject)=>{
     new GLTFLoader().load(MODEL_URL,
-      gltf => { modelTemplate = gltf.scene; resolve(); },
+      gltf => {
+        try {
+          modelTemplate = normalizeBagModel(gltf.scene);
+          DBG.push('GLB OK -> bolsa ' + modelSize.width.toFixed(3) + ' x '
+            + modelSize.height.toFixed(3) + ' x ' + modelSize.depth.toFixed(3) + ' m', 'ok');
+          resolve();
+        } catch(e){
+          DBG.push('ERRO ao normalizar GLB: ' + e.message, 'err');
+          reject(e);
+        }
+      },
       undefined,
-      err => reject(err)
+      err => {
+        DBG.push('ERRO ao carregar GLB: ' + (err && err.message || err), 'err');
+        reject(err);
+      }
     );
   });
 }
 
+function normalizeBagModel(root){
+  let box = new THREE.Box3().setFromObject(root);
+  let size = new THREE.Vector3(); box.getSize(size);
+  let center = new THREE.Vector3(); box.getCenter(center);
+
+  const group = new THREE.Group();
+
+  if (MODEL_AUTOCENTER_XZ) {
+    root.position.x -= center.x;
+    root.position.z -= center.z;
+  }
+  root.position.y -= box.min.y;
+
+  group.add(root);
+  group.scale.setScalar(MODEL_SCALE);
+
+  const scaled = new THREE.Group();
+  scaled.add(group);
+
+  let box2 = new THREE.Box3().setFromObject(scaled);
+  let size2 = new THREE.Vector3(); box2.getSize(size2);
+
+  if (MODEL_REAL_SIZE && MODEL_REAL_SIZE.width && size2.x > 0){
+    const factor = MODEL_REAL_SIZE.width / size2.x;
+    group.scale.multiplyScalar(factor);
+    box2 = new THREE.Box3().setFromObject(scaled);
+    box2.getSize(size2);
+  }
+
+  modelSize = { width: size2.x, height: size2.y, depth: size2.z };
+  console.log('[AR] bolsa normalizada (m):', modelSize);
+  return scaled;
+}
+
 startBtn.addEventListener('click', async ()=>{
-  setStatus('Loading model…');
+  setStatus('Carregando modelo…');
   introEl.style.display = 'none';
   hudEl.style.display = 'block';
   try { await preloadModel(); }
   catch(e){
     introEl.style.display = 'flex'; hudEl.style.display = 'none';
     document.getElementById('unsupported').style.display = 'block';
-    document.getElementById('unsupported').textContent =
-      'Failed to load the 3D model (' + MODEL_URL + ').';
+    document.getElementById('unsupported').textContent = 'Falha ao carregar o modelo 3D (' + MODEL_URL + ').';
     return;
   }
   startAR();
@@ -170,28 +327,42 @@ startBtn.addEventListener('click', async ()=>{
 
 async function startAR(){
   initThree();
+  refreshFootprintPreview();
+
   try {
     xrSession = await navigator.xr.requestSession('immersive-ar', {
       requiredFeatures: ['hit-test'],
-      optionalFeatures: ['dom-overlay', 'light-estimation'],
+      optionalFeatures: ['dom-overlay', 'anchors', 'light-estimation'],
       domOverlay: { root: hudEl }
     });
+    DBG.push('sessao immersive-ar criada', 'ok');
   } catch(e){
-    setStatus('Could not open the AR camera.');
+    DBG.push('ERRO ao criar sessao AR: ' + e.message, 'err');
+    setStatus('Não foi possível abrir a câmera AR.');
     introEl.style.display = 'flex'; hudEl.style.display = 'none';
     return;
   }
 
   renderer.xr.setReferenceSpaceType('local');
   await renderer.xr.setSession(xrSession);
+
   xrRefSpace  = await xrSession.requestReferenceSpace('local');
   viewerSpace = await xrSession.requestReferenceSpace('viewer');
-  hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
+  DBG.push('reference spaces local + viewer OK', 'ok');
+
+  try {
+    hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
+    DBG.push('hitTestSource criado (espaco=viewer)', 'ok');
+  } catch(e){
+    DBG.push('ERRO ao criar hitTestSource: ' + e.message, 'err');
+  }
 
   xrSession.addEventListener('end', onSessionEnd);
   xrSession.addEventListener('select', onSelect);
 
-  setStatus('Looking for the floor… move the phone slowly');
+  DBG.push('HORIZONTAL_DOT_MIN=' + HORIZONTAL_DOT_MIN + ' normal.y precisa ser >=' + HORIZONTAL_DOT_MIN);
+  DBG.push('loop iniciado — aponte p/ chão, mesa ou bancada e mova devagar');
+  setStatus('Procurando superfície… mova o celular devagar');
   renderer.setAnimationLoop(onXRFrame);
 }
 
@@ -202,24 +373,43 @@ function onSessionEnd(){
   hudEl.style.display = 'none';
   introEl.style.display = 'flex';
   bagPlaced = false;
-  resetBtn.classList.add('hidden');
+  hideModelControls();
+  DBG.push('sessao AR encerrada — o log acima pode ser copiado');
 }
 
-exitBtn.addEventListener('pointerdown', markUITap);
 exitBtn.addEventListener('click', ()=> xrSession && xrSession.end());
 
-resetBtn.addEventListener('pointerdown', markUITap);
 resetBtn.addEventListener('click', ()=>{
-  markUITap();
   if (bagModel){ scene.remove(bagModel); bagModel = null; }
   bagPlaced = false;
   reticle.visible = false;
-  lastPose = null; lastPoseTime = -1e9;
-  resetBtn.classList.add('hidden');
-  setStatus('Looking for the floor… move the phone slowly');
+  footprintPreview.visible = false;
+  modelYaw = 0;
+  modelScaleMultiplier = 1.0;
+  hideModelControls();
+  setStatus('Procurando superfície… mova o celular devagar');
 });
 
-// ---- three.js setup ----
+rotateLeftBtn.addEventListener('click', ()=>{ modelYaw += ROTATE_STEP; updatePlacedModelTransformOnly(); });
+rotateRightBtn.addEventListener('click', ()=>{ modelYaw -= ROTATE_STEP; updatePlacedModelTransformOnly(); });
+scaleDownBtn.addEventListener('click', ()=>{ modelScaleMultiplier = Math.max(0.35, modelScaleMultiplier / SCALE_STEP); updatePlacedModelTransformOnly(); });
+scaleUpBtn.addEventListener('click', ()=>{ modelScaleMultiplier = Math.min(2.5, modelScaleMultiplier * SCALE_STEP); updatePlacedModelTransformOnly(); });
+
+function showModelControls(){
+  resetBtn.classList.remove('hidden');
+  rotateLeftBtn.classList.remove('hidden');
+  rotateRightBtn.classList.remove('hidden');
+  scaleDownBtn.classList.remove('hidden');
+  scaleUpBtn.classList.remove('hidden');
+}
+function hideModelControls(){
+  resetBtn.classList.add('hidden');
+  rotateLeftBtn.classList.add('hidden');
+  rotateRightBtn.classList.add('hidden');
+  scaleDownBtn.classList.add('hidden');
+  scaleUpBtn.classList.add('hidden');
+}
+
 function initThree(){
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.01, 30);
@@ -228,23 +418,25 @@ function initThree(){
   renderer.setPixelRatio(devicePixelRatio);
   renderer.setSize(innerWidth, innerHeight);
   renderer.xr.enabled = true;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
   document.body.appendChild(renderer.domElement);
   renderer.domElement.style.position = 'fixed';
   renderer.domElement.style.inset = '0';
   renderer.domElement.style.zIndex = '10';
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 1.7));
-  const dir = new THREE.DirectionalLight(0xffffff, 0.9);
-  dir.position.set(0.5, 2, 1);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 1.6));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+  dir.position.set(0.5, 1, 1);
   scene.add(dir);
 
   reticle = makeReticle();
   reticle.visible = false;
   reticle.matrixAutoUpdate = false;
   scene.add(reticle);
+
+  footprintPreview = makeFootprintPreview();
+  footprintPreview.visible = false;
+  footprintPreview.matrixAutoUpdate = false;
+  scene.add(footprintPreview);
 
   addEventListener('resize', ()=>{
     camera.aspect = innerWidth/innerHeight;
@@ -253,128 +445,192 @@ function initThree(){
   });
 }
 
-// reticle: a flat ring that lies on the floor
 function makeReticle(){
   const g = new THREE.Group();
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.07, 0.085, 48),
-    new THREE.MeshBasicMaterial({ color:0x7CFFB2, side:THREE.DoubleSide,
-      transparent:true, opacity:0.95 })
+    new THREE.RingGeometry(0.045, 0.055, 40),
+    new THREE.MeshBasicMaterial({ color: 0x7CFFB2, side: THREE.DoubleSide, transparent:true, opacity:0.95 })
   );
-  ring.rotation.x = -Math.PI/2;   // lay flat on the floor
   const dot = new THREE.Mesh(
-    new THREE.CircleGeometry(0.008, 24),
-    new THREE.MeshBasicMaterial({ color:0x7CFFB2 })
+    new THREE.CircleGeometry(0.006, 20),
+    new THREE.MeshBasicMaterial({ color: 0x7CFFB2 })
   );
-  dot.rotation.x = -Math.PI/2;
+  ring.rotation.x = -Math.PI / 2;
+  dot.rotation.x = -Math.PI / 2;
   g.add(ring, dot);
   return g;
 }
 
-// ---- geometry helpers ----
-const _m = new THREE.Matrix4();
-const UP = new THREE.Vector3(0,1,0);
+function makeFootprintPreview(){
+  const w = modelSize.width / 2;
+  const d = modelSize.depth / 2;
+  const pts = [
+    new THREE.Vector3(-w,0,-d), new THREE.Vector3( w,0,-d),
+    new THREE.Vector3( w,0, d), new THREE.Vector3(-w,0, d),
+    new THREE.Vector3(-w,0,-d)
+  ];
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x7CFFB2, transparent:true, opacity:0.9 }));
+  return line;
+}
 
-// surface normal from a hit-test pose (WebXR hit-test +Y = surface normal)
-function surfaceNormal(matrix){
+function refreshFootprintPreview(){
+  if (!footprintPreview) return;
+  scene.remove(footprintPreview);
+  footprintPreview = makeFootprintPreview();
+  footprintPreview.visible = false;
+  footprintPreview.matrixAutoUpdate = false;
+  scene.add(footprintPreview);
+}
+
+const _m = new THREE.Matrix4();
+const _q = new THREE.Quaternion();
+const _p = new THREE.Vector3();
+const _s = new THREE.Vector3();
+
+function surfaceNormalFromPose(matrix){
   const q = new THREE.Quaternion();
-  matrix.decompose(new THREE.Vector3(), q, new THREE.Vector3());
+  const p = new THREE.Vector3();
+  const s = new THREE.Vector3();
+  matrix.decompose(p, q, s);
   return new THREE.Vector3(0,1,0).applyQuaternion(q).normalize();
 }
 
-// true if the surface is roughly horizontal (floor / table)
-function isFloor(normal){
-  // floor => normal points up => y close to 1
-  return Math.abs(normal.y) > HORIZONTAL_DOT_MIN;
-}
+function isHorizontalSurface(normal){ return normal.y >= HORIZONTAL_DOT_MIN; }
 
-// pose for the bag: position at the hit point, kept upright (yaw only),
-// so the bag stands naturally on the floor regardless of phone tilt.
-function poseOnFloor(hitMatrix){
-  const p = new THREE.Vector3();
-  const q = new THREE.Quaternion();
-  hitMatrix.decompose(p, q, new THREE.Vector3());
+function poseOnSurface(hitMatrix){
+  hitMatrix.decompose(_p, _q, _s);
+  const normal = new THREE.Vector3(0,1,0).applyQuaternion(_q).normalize();
+  const pos = _p.clone().addScaledVector(normal, SURFACE_OFFSET);
 
-  // keep only the yaw (rotation around world-up); discard tilt so the
-  // bag always stands straight up on the floor.
-  const fwd = new THREE.Vector3(0,0,-1).applyQuaternion(q);
-  fwd.y = 0;
-  if (fwd.lengthSq() < 1e-6) fwd.set(0,0,-1);
-  fwd.normalize();
-  const yaw = Math.atan2(fwd.x, fwd.z);
-  const quat = new THREE.Quaternion().setFromAxisAngle(UP, yaw);
+  const cam = new THREE.Vector3();
+  camera.getWorldPosition(cam);
+  const toCam = cam.clone().sub(pos);
+  toCam.y = 0;
 
+  let yaw = modelYaw;
+  if (toCam.lengthSq() > 0.0001 && !bagPlaced) {
+    yaw = Math.atan2(toCam.x, toCam.z);
+  }
+
+  const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw, 0));
   const out = new THREE.Matrix4();
-  out.compose(p, quat, new THREE.Vector3(1,1,1));
+  out.compose(pos, quat, new THREE.Vector3(modelScaleMultiplier, modelScaleMultiplier, modelScaleMultiplier));
   return out;
 }
 
-// ---- tap to place ----
 function onSelect(){
-  if (performance.now() < uiTapUntil) return;   // ignore UI-button taps
-  if (!reticle.visible){
-    toast('Point at the floor first');
+  DBG.push('TOQUE na tela. reticle.visible=' + reticle.visible);
+  if (!reticle.visible) {
+    toast('Aponte para uma superfície primeiro');
     return;
   }
   if (!bagModel){
     bagModel = modelTemplate.clone(true);
-    bagModel.matrixAutoUpdate = false;
     scene.add(bagModel);
   }
-  // freeze the bag at the reticle pose — never recomputed afterwards
-  placedPose.copy(reticle.matrix);
-  bagModel.matrix.copy(placedPose);
+  bagModel.matrixAutoUpdate = false;
+  lastPlacementMatrix.copy(reticle.matrix);
+  bagModel.matrix.copy(lastPlacementMatrix);
   bagPlaced = true;
-  resetBtn.classList.remove('hidden');
-  setStatus('Bag placed — tap Reposition to move it');
-  toast('Bag placed at real size');
+  showModelControls();
+  setStatus('Bolsa posicionada — toque em outro ponto para mover');
+  toast('Bolsa posicionada em AR');
+  DBG.push('bolsa FIXADA na superfície', 'ok');
 }
 
-// ---- render loop ----
+function updatePlacedModelTransformOnly(){
+  if (!bagModel || !bagPlaced) return;
+
+  lastPlacementMatrix.decompose(_p, _q, _s);
+  const yawQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, modelYaw, 0));
+  const scale = new THREE.Vector3(modelScaleMultiplier, modelScaleMultiplier, modelScaleMultiplier);
+  const updated = new THREE.Matrix4();
+  updated.compose(_p, yawQ, scale);
+  bagModel.matrix.copy(updated);
+  toast('Ajuste aplicado');
+}
+
+let _dbgLastSummary = 0;
+let _dbgFrameCount = 0;
+let _dbgMaxHits = 0;
+let _dbgLastSurfaceState = null;
+let _dbgFirstHitLogged = false;
+let _dbgFirstSurfaceLogged = false;
+
 function onXRFrame(timestamp, frame){
-  if (!frame || !hitTestSource){ if(renderer) renderer.render(scene,camera); return; }
+  if (!frame) return;
+  if (!hitTestSource){ renderer.render(scene, camera); return; }
 
   const results = frame.getHitTestResults(hitTestSource);
-  let floorHit = null;
+  _dbgFrameCount++;
+  if (results.length > _dbgMaxHits) _dbgMaxHits = results.length;
+
+  if (!_dbgFirstHitLogged && results.length > 0){
+    _dbgFirstHitLogged = true;
+    DBG.push('1o hit-test recebido (' + results.length + ' resultado(s))', 'ok');
+  }
+
+  let surfaceHit = null;
+  let normalsInfo = [];
+
   for (const r of results){
     const pose = r.getPose(xrRefSpace);
     if (!pose) continue;
     _m.fromArray(pose.transform.matrix);
-    if (isFloor(surfaceNormal(_m.clone()))){ floorHit = _m.clone(); break; }
+    const n = surfaceNormalFromPose(_m.clone());
+    normalsInfo.push({ x:n.x, y:n.y, z:n.z, horizontal: isHorizontalSurface(n) });
+    if (isHorizontalSurface(n) && !surfaceHit){ surfaceHit = _m.clone(); }
   }
 
-  // smoothing + hold (same approach proven in the poster app)
-  let showReticle = false, activePose = null;
-  if (floorHit){
-    const fp = poseOnFloor(floorHit);
-    lastPoseTime = timestamp;
-    if (!lastPose){ lastPose = fp.clone(); }
-    else {
-      lastPose.decompose(_smP, _smQ, _smS);
-      fp.decompose(_tgP, _tgQ, new THREE.Vector3());
-      _smP.lerp(_tgP, SMOOTH);
-      _smQ.slerp(_tgQ, SMOOTH);
-      lastPose.compose(_smP, _smQ, new THREE.Vector3(1,1,1));
+  if (!_dbgFirstSurfaceLogged && surfaceHit){
+    _dbgFirstSurfaceLogged = true;
+    DBG.push('1a superfície horizontal válida detectada', 'ok');
+  }
+
+  const curState = surfaceHit ? 'horizontal' : (results.length > 0 ? 'nonhorizontal' : 'none');
+  if (curState !== _dbgLastSurfaceState){
+    if (curState === 'horizontal'){
+      DBG.push('-> superfície horizontal encontrada (reticle ON)', 'ok');
+    } else if (curState === 'nonhorizontal'){
+      const n = normalsInfo[0];
+      DBG.push('-> superfície detectada, mas NAO horizontal. normal=(' + n.x.toFixed(2) + ',' + n.y.toFixed(2) + ',' + n.z.toFixed(2) + ') y=' + n.y.toFixed(2) + ' (limite ' + HORIZONTAL_DOT_MIN.toFixed(2) + ')', 'warn');
+    } else {
+      DBG.push('-> sem nenhum hit-test (perdeu tracking / aponta p/ vazio)', 'warn');
     }
-    showReticle = true; activePose = lastPose;
-  } else if (lastPose && (timestamp - lastPoseTime) < HOLD_MS){
-    showReticle = true; activePose = lastPose;
-  } else {
-    showReticle = false;
-    if (timestamp - lastPoseTime >= HOLD_MS) lastPose = null;
+    _dbgLastSurfaceState = curState;
   }
 
-  if (showReticle && activePose && !bagPlaced){
+  if (timestamp - _dbgLastSummary > 1000){
+    let line = 'frames/s~' + _dbgFrameCount + ' | hits agora=' + results.length + ' | max hits=' + _dbgMaxHits;
+    if (normalsInfo.length){
+      const n = normalsInfo[0];
+      line += ' | normal[0]=(' + n.x.toFixed(2) + ',' + n.y.toFixed(2) + ',' + n.z.toFixed(2) + ')' + (n.horizontal ? ' HORIZONTAL' : ' nao-horizontal');
+    }
+    DBG.push(line);
+    _dbgLastSummary = timestamp;
+    _dbgFrameCount = 0;
+  }
+
+  if (surfaceHit){
+    const surfacePose = poseOnSurface(surfaceHit);
     reticle.visible = true;
-    reticle.matrix.copy(activePose);
-    setStatus('Floor found — tap to place the bag');
-  } else if (!bagPlaced){
-    reticle.visible = false;
-    setStatus(results.length > 0
-      ? 'Surface is not horizontal — point at the floor'
-      : 'Looking for the floor… move the phone slowly');
+    reticle.matrix.copy(surfacePose);
+    if (!bagPlaced){
+      footprintPreview.visible = true;
+      footprintPreview.matrix.copy(surfacePose);
+      setStatus('Superfície encontrada — toque para posicionar a bolsa');
+    } else {
+      footprintPreview.visible = false;
+    }
   } else {
     reticle.visible = false;
+    footprintPreview.visible = false;
+    if (!bagPlaced && results.length > 0){
+      setStatus('Superfície detectada não é horizontal — aponte para chão/mesa');
+    } else if (!bagPlaced){
+      setStatus('Procurando superfície… mova o celular devagar');
+    }
   }
 
   renderer.render(scene, camera);
