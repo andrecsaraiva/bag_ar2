@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>AR Try-On — Bag</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; background:#0d0d0f; font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif; color:#fff; overflow:hidden; }
+
+  #intro {
+    position:fixed; inset:0; z-index:30;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:32px; gap:18px;
+    background:radial-gradient(circle at 50% 30%, #1c1c22, #0d0d0f);
+  }
+  #intro h1 { font-size:22px; font-weight:650; }
+  #intro p { font-size:14px; line-height:1.5; color:#a8a8b0; max-width:320px; }
+  #startBtn {
+    margin-top:8px; padding:15px 34px; font-size:16px; font-weight:600;
+    border:none; border-radius:100px; background:#f5f3ee; color:#16161a; cursor:pointer;
+  }
+  #startBtn:active { transform:scale(0.97); }
+  #unsupported { display:none; color:#ff8a80; font-size:13px; max-width:320px; }
+
+  #hud { position:fixed; inset:0; z-index:20; display:none; pointer-events:none; }
+  #status {
+    position:absolute; top:env(safe-area-inset-top,14px); left:50%;
+    transform:translateX(-50%); margin-top:14px;
+    background:rgba(0,0,0,0.62); backdrop-filter:blur(8px);
+    padding:9px 18px; border-radius:100px; font-size:13px; white-space:nowrap;
+  }
+  #exitBtn {
+    position:absolute; top:env(safe-area-inset-top,14px); right:14px; margin-top:14px;
+    width:38px; height:38px; border-radius:50%; pointer-events:auto;
+    background:rgba(0,0,0,0.62); border:none; color:#fff; font-size:18px; cursor:pointer;
+  }
+  #toast {
+    position:absolute; bottom:150px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,0.8); padding:8px 16px; border-radius:100px;
+    font-size:12px; opacity:0; transition:opacity .25s; white-space:nowrap;
+  }
+  #bottomBar {
+    position:absolute; left:0; right:0; bottom:0;
+    padding:14px 16px calc(env(safe-area-inset-bottom,16px) + 14px);
+    display:flex; gap:10px; justify-content:center; pointer-events:auto;
+  }
+  .pill {
+    padding:13px 20px; font-size:14px; font-weight:600; border-radius:100px;
+    border:1px solid rgba(255,255,255,0.18); background:rgba(20,20,24,0.78);
+    backdrop-filter:blur(8px); color:#fff; cursor:pointer;
+  }
+  .pill:active { transform:scale(0.96); }
+  .pill.hidden { display:none; }
+</style>
+</head>
+<body>
+
+<div id="intro">
+  <h1>Bag Try-On</h1>
+  <p>Point the camera at the <b>floor or a table</b> where you want to place the bag. Move the phone slowly so AR can detect the surface, then tap to place it.</p>
+  <button id="startBtn">Start camera</button>
+  <p id="unsupported">⚠️ This device/browser does not support WebXR AR.<br>Use <b>Google Chrome</b> on an Android device with ARCore.</p>
+</div>
+
+<div id="hud">
+  <div id="status">Starting…</div>
+  <button id="exitBtn">✕</button>
+  <div id="toast"></div>
+  <div id="bottomBar">
+    <button class="pill hidden" id="resetBtn">Reposition</button>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ===================== CONFIG =====================
+const MODEL_URL = './bag.glb';
+// How "horizontal" a surface must be to count as floor/table.
+// 1 = perfectly horizontal. 0.82 ~= tolerates ~35deg of tilt.
+const HORIZONTAL_DOT_MIN = 0.82;
+// keep last good pose this long (ms) after a tracking drop
+const HOLD_MS = 600;
+const SMOOTH = 0.35;
+// ==================================================
+
+const statusEl = document.getElementById('status');
+const introEl  = document.getElementById('intro');
+const hudEl    = document.getElementById('hud');
+const toastEl  = document.getElementById('toast');
+const startBtn = document.getElementById('startBtn');
+const exitBtn  = document.getElementById('exitBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+let renderer, scene, camera;
+let reticle, bagModel, bagPlaced = false;
+let modelTemplate = null;
+let xrSession = null, xrRefSpace = null, viewerSpace = null;
+let hitTestSource = null;
+let toastTimer = null;
+
+// frozen pose of the placed bag (set once on tap, never recomputed)
+let placedPose = new THREE.Matrix4();
+
+// UI tap guard: tapping a button also fires WebXR 'select'
+let uiTapUntil = 0;
+function markUITap(){ uiTapUntil = performance.now() + 400; }
+
+// tracking smoothing
+let lastPose = null, lastPoseTime = -1e9;
+const _smP = new THREE.Vector3(), _smQ = new THREE.Quaternion(), _smS = new THREE.Vector3();
+const _tgP = new THREE.Vector3(), _tgQ = new THREE.Quaternion();
+
+function setStatus(t){ statusEl.textContent = t; }
+function toast(t){
+  toastEl.textContent = t; toastEl.style.opacity = 1;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ toastEl.style.opacity = 0; }, 2200);
+}
+
+async function checkSupport(){
+  if (!('xr' in navigator)) return false;
+  try { return await navigator.xr.isSessionSupported('immersive-ar'); }
+  catch(e){ return false; }
+}
+checkSupport().then(ok => {
+  if (!ok){
+    startBtn.style.display = 'none';
+    document.getElementById('unsupported').style.display = 'block';
+  }
+});
+
+// ---- load the GLB ----
+function preloadModel(){
+  return new Promise((resolve, reject)=>{
+    new GLTFLoader().load(MODEL_URL,
+      gltf => { modelTemplate = gltf.scene; resolve(); },
+      undefined,
+      err => reject(err)
+    );
+  });
+}
+
+startBtn.addEventListener('click', async ()=>{
+  setStatus('Loading model…');
+  introEl.style.display = 'none';
+  hudEl.style.display = 'block';
+  try { await preloadModel(); }
+  catch(e){
+    introEl.style.display = 'flex'; hudEl.style.display = 'none';
+    document.getElementById('unsupported').style.display = 'block';
+    document.getElementById('unsupported').textContent =
+      'Failed to load the 3D model (' + MODEL_URL + ').';
+    return;
+  }
+  startAR();
+});
+
+async function startAR(){
+  initThree();
+  try {
+    xrSession = await navigator.xr.requestSession('immersive-ar', {
+      requiredFeatures: ['hit-test'],
+      optionalFeatures: ['dom-overlay', 'light-estimation'],
+      domOverlay: { root: hudEl }
+    });
+  } catch(e){
+    setStatus('Could not open the AR camera.');
+    introEl.style.display = 'flex'; hudEl.style.display = 'none';
+    return;
+  }
+
+  renderer.xr.setReferenceSpaceType('local');
+  await renderer.xr.setSession(xrSession);
+  xrRefSpace  = await xrSession.requestReferenceSpace('local');
+  viewerSpace = await xrSession.requestReferenceSpace('viewer');
+  hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
+
+  xrSession.addEventListener('end', onSessionEnd);
+  xrSession.addEventListener('select', onSelect);
+
+  setStatus('Looking for the floor… move the phone slowly');
+  renderer.setAnimationLoop(onXRFrame);
+}
+
+function onSessionEnd(){
+  renderer.setAnimationLoop(null);
+  if (hitTestSource){ hitTestSource.cancel?.(); hitTestSource = null; }
+  xrSession = null;
+  hudEl.style.display = 'none';
+  introEl.style.display = 'flex';
+  bagPlaced = false;
+  resetBtn.classList.add('hidden');
+}
+
+exitBtn.addEventListener('pointerdown', markUITap);
+exitBtn.addEventListener('click', ()=> xrSession && xrSession.end());
+
+resetBtn.addEventListener('pointerdown', markUITap);
+resetBtn.addEventListener('click', ()=>{
+  markUITap();
+  if (bagModel){ scene.remove(bagModel); bagModel = null; }
+  bagPlaced = false;
+  reticle.visible = false;
+  lastPose = null; lastPoseTime = -1e9;
+  resetBtn.classList.add('hidden');
+  setStatus('Looking for the floor… move the phone slowly');
+});
+
+// ---- three.js setup ----
+function initThree(){
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.01, 30);
+
+  renderer = new THREE.WebGLRenderer({ alpha:true, antialias:true });
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.xr.enabled = true;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  document.body.appendChild(renderer.domElement);
+  renderer.domElement.style.position = 'fixed';
+  renderer.domElement.style.inset = '0';
+  renderer.domElement.style.zIndex = '10';
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 1.7));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+  dir.position.set(0.5, 2, 1);
+  scene.add(dir);
+
+  reticle = makeReticle();
+  reticle.visible = false;
+  reticle.matrixAutoUpdate = false;
+  scene.add(reticle);
+
+  addEventListener('resize', ()=>{
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+}
+
+// reticle: a flat ring that lies on the floor
+function makeReticle(){
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.07, 0.085, 48),
+    new THREE.MeshBasicMaterial({ color:0x7CFFB2, side:THREE.DoubleSide,
+      transparent:true, opacity:0.95 })
+  );
+  ring.rotation.x = -Math.PI/2;   // lay flat on the floor
+  const dot = new THREE.Mesh(
+    new THREE.CircleGeometry(0.008, 24),
+    new THREE.MeshBasicMaterial({ color:0x7CFFB2 })
+  );
+  dot.rotation.x = -Math.PI/2;
+  g.add(ring, dot);
+  return g;
+}
+
+// ---- geometry helpers ----
+const _m = new THREE.Matrix4();
+const UP = new THREE.Vector3(0,1,0);
+
+// surface normal from a hit-test pose (WebXR hit-test +Y = surface normal)
+function surfaceNormal(matrix){
+  const q = new THREE.Quaternion();
+  matrix.decompose(new THREE.Vector3(), q, new THREE.Vector3());
+  return new THREE.Vector3(0,1,0).applyQuaternion(q).normalize();
+}
+
+// true if the surface is roughly horizontal (floor / table)
+function isFloor(normal){
+  // floor => normal points up => y close to 1
+  return Math.abs(normal.y) > HORIZONTAL_DOT_MIN;
+}
+
+// pose for the bag: position at the hit point, kept upright (yaw only),
+// so the bag stands naturally on the floor regardless of phone tilt.
+function poseOnFloor(hitMatrix){
+  const p = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  hitMatrix.decompose(p, q, new THREE.Vector3());
+
+  // keep only the yaw (rotation around world-up); discard tilt so the
+  // bag always stands straight up on the floor.
+  const fwd = new THREE.Vector3(0,0,-1).applyQuaternion(q);
+  fwd.y = 0;
+  if (fwd.lengthSq() < 1e-6) fwd.set(0,0,-1);
+  fwd.normalize();
+  const yaw = Math.atan2(fwd.x, fwd.z);
+  const quat = new THREE.Quaternion().setFromAxisAngle(UP, yaw);
+
+  const out = new THREE.Matrix4();
+  out.compose(p, quat, new THREE.Vector3(1,1,1));
+  return out;
+}
+
+// ---- tap to place ----
+function onSelect(){
+  if (performance.now() < uiTapUntil) return;   // ignore UI-button taps
+  if (!reticle.visible){
+    toast('Point at the floor first');
+    return;
+  }
+  if (!bagModel){
+    bagModel = modelTemplate.clone(true);
+    bagModel.matrixAutoUpdate = false;
+    scene.add(bagModel);
+  }
+  // freeze the bag at the reticle pose — never recomputed afterwards
+  placedPose.copy(reticle.matrix);
+  bagModel.matrix.copy(placedPose);
+  bagPlaced = true;
+  resetBtn.classList.remove('hidden');
+  setStatus('Bag placed — tap Reposition to move it');
+  toast('Bag placed at real size');
+}
+
+// ---- render loop ----
+function onXRFrame(timestamp, frame){
+  if (!frame || !hitTestSource){ if(renderer) renderer.render(scene,camera); return; }
+
+  const results = frame.getHitTestResults(hitTestSource);
+  let floorHit = null;
+  for (const r of results){
+    const pose = r.getPose(xrRefSpace);
+    if (!pose) continue;
+    _m.fromArray(pose.transform.matrix);
+    if (isFloor(surfaceNormal(_m.clone()))){ floorHit = _m.clone(); break; }
+  }
+
+  // smoothing + hold (same approach proven in the poster app)
+  let showReticle = false, activePose = null;
+  if (floorHit){
+    const fp = poseOnFloor(floorHit);
+    lastPoseTime = timestamp;
+    if (!lastPose){ lastPose = fp.clone(); }
+    else {
+      lastPose.decompose(_smP, _smQ, _smS);
+      fp.decompose(_tgP, _tgQ, new THREE.Vector3());
+      _smP.lerp(_tgP, SMOOTH);
+      _smQ.slerp(_tgQ, SMOOTH);
+      lastPose.compose(_smP, _smQ, new THREE.Vector3(1,1,1));
+    }
+    showReticle = true; activePose = lastPose;
+  } else if (lastPose && (timestamp - lastPoseTime) < HOLD_MS){
+    showReticle = true; activePose = lastPose;
+  } else {
+    showReticle = false;
+    if (timestamp - lastPoseTime >= HOLD_MS) lastPose = null;
+  }
+
+  if (showReticle && activePose && !bagPlaced){
+    reticle.visible = true;
+    reticle.matrix.copy(activePose);
+    setStatus('Floor found — tap to place the bag');
+  } else if (!bagPlaced){
+    reticle.visible = false;
+    setStatus(results.length > 0
+      ? 'Surface is not horizontal — point at the floor'
+      : 'Looking for the floor… move the phone slowly');
+  } else {
+    reticle.visible = false;
+  }
+
+  renderer.render(scene, camera);
+}
+</script>
+</body>
+</html>
