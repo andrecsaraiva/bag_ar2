@@ -1,10 +1,10 @@
-# Bag AR Try-On — WebXR
+# Bag AR Try-On — WebXR com sombra e gestos
 
-Versão simples, sem 8th Wall e sem build, baseada no mesmo padrão WebXR do protótipo de quadro/poster.
+Versão simples, sem 8th Wall e sem build.
 
 ## Estrutura
 
-Coloque tudo na raiz do repositório:
+Coloque tudo na raiz:
 
     bag-webxr/
     ├── index.html
@@ -12,33 +12,28 @@ Coloque tudo na raiz do repositório:
     ├── bag.glb
     └── vercel.json
 
-## Como funciona
+## Melhorias adicionadas
 
-- `index.html` gera o QR Code para `ar.html`.
-- `ar.html` abre uma sessão WebXR `immersive-ar`.
-- O tracking usa WebXR hit-test direto do ARCore.
-- O app filtra superfícies horizontais, como chão, mesa e bancada.
-- Toque para posicionar a bolsa.
-- Depois de posicionar, use:
-  - `Reposicionar`
-  - `↺` e `↻` para girar
-  - `−` e `+` para ajustar escala
+- Sombra simples usando ShadowMaterial.
+- Iluminação menos flat:
+  - Hemisphere light mais suave
+  - Key light direcional com sombra
+  - Fill light leve
+  - ACES tone mapping
+- Depois de posicionar:
+  - 1 dedo arrasta a bolsa pela superfície
+  - 2 dedos rotaciona e ajusta escala
+  - Botões ↺, ↻, −, + continuam disponíveis
 
-## Deploy
+## Configuração
 
-No Vercel:
+No topo do ar.html:
 
-- Framework Preset: Other
-- Sem build
-- Sem output directory
+- MODEL_URL = './bag.glb'
+- MODEL_SCALE = 1.0
+- HORIZONTAL_DOT_MIN = 0.72
+- SHADOW_OPACITY = 0.32
+- DRAG_SENSITIVITY = 1.0
 
-Basta subir os arquivos na raiz. O `vercel.json` garante o MIME type correto do `.glb`.
-
-## Ajustes principais no topo do `ar.html`
-
-- `MODEL_URL = './bag.glb'`
-- `MODEL_SCALE = 1.0`
-- `MODEL_REAL_SIZE = null`
-- `HORIZONTAL_DOT_MIN = 0.72`
-
-Se a bolsa vier muito grande/pequena, ajuste `MODEL_SCALE` ou use `MODEL_REAL_SIZE`.
+Se a sombra ficar forte/fraca, ajuste SHADOW_OPACITY.
+Se o arraste estiver rápido/lento, ajuste DRAG_SENSITIVITY.
