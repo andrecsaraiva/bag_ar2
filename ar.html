@@ -441,7 +441,7 @@ function initThree(){
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.08;
+  renderer.toneMappingExposure = 2;
   document.body.appendChild(renderer.domElement);
   renderer.domElement.style.position = 'fixed';
   renderer.domElement.style.inset = '0';
