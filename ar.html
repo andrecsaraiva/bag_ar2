@@ -120,8 +120,6 @@
     <button class="pill hidden" id="resetBtn">Reposicionar</button>
     <button class="pill hidden" id="rotateLeftBtn">↺</button>
     <button class="pill hidden" id="rotateRightBtn">↻</button>
-    <button class="pill hidden light" id="scaleDownBtn">−</button>
-    <button class="pill hidden light" id="scaleUpBtn">+</button>
   </div>
 </div>
 
@@ -158,7 +156,6 @@ const HORIZONTAL_DOT_MIN = 0.72;
 
 const SURFACE_OFFSET = 0.006;
 const ROTATE_STEP = THREE.MathUtils.degToRad(15);
-const SCALE_STEP = 1.10;
 const DRAG_SENSITIVITY = 1.0;
 
 const ENABLE_SHADOW = true;
@@ -176,8 +173,6 @@ const exitBtn  = document.getElementById('exitBtn');
 const resetBtn = document.getElementById('resetBtn');
 const rotateLeftBtn = document.getElementById('rotateLeftBtn');
 const rotateRightBtn = document.getElementById('rotateRightBtn');
-const scaleDownBtn = document.getElementById('scaleDownBtn');
-const scaleUpBtn = document.getElementById('scaleUpBtn');
 
 const debugPanel = document.getElementById('debugPanel');
 const debugLogEl = document.getElementById('debugLog');
@@ -386,10 +381,9 @@ async function startAR(){
   }
 
   xrSession.addEventListener('end', onSessionEnd);
-  xrSession.addEventListener('select', onSelect);
 
   DBG.push('HORIZONTAL_DOT_MIN=' + HORIZONTAL_DOT_MIN + ' normal.y precisa ser >=' + HORIZONTAL_DOT_MIN);
-  DBG.push('gestos: 1 dedo arrasta | 2 dedos rotaciona/escala');
+  DBG.push('gestos: 1 dedo arrasta | 2 dedos rotaciona');
   DBG.push('loop iniciado — aponte p/ chão, mesa ou bancada e mova devagar');
   setStatus('Procurando superfície… mova o celular devagar');
   renderer.setAnimationLoop(onXRFrame);
@@ -423,22 +417,16 @@ resetBtn.addEventListener('click', ()=>{
 
 rotateLeftBtn.addEventListener('click', ()=>{ modelYaw += ROTATE_STEP; updatePlacedModelTransformOnly(); });
 rotateRightBtn.addEventListener('click', ()=>{ modelYaw -= ROTATE_STEP; updatePlacedModelTransformOnly(); });
-scaleDownBtn.addEventListener('click', ()=>{ modelScaleMultiplier = Math.max(0.35, modelScaleMultiplier / SCALE_STEP); updatePlacedModelTransformOnly(); });
-scaleUpBtn.addEventListener('click', ()=>{ modelScaleMultiplier = Math.min(2.5, modelScaleMultiplier * SCALE_STEP); updatePlacedModelTransformOnly(); });
 
 function showModelControls(){
   resetBtn.classList.remove('hidden');
   rotateLeftBtn.classList.remove('hidden');
   rotateRightBtn.classList.remove('hidden');
-  scaleDownBtn.classList.remove('hidden');
-  scaleUpBtn.classList.remove('hidden');
 }
 function hideModelControls(){
   resetBtn.classList.add('hidden');
   rotateLeftBtn.classList.add('hidden');
   rotateRightBtn.classList.add('hidden');
-  scaleDownBtn.classList.add('hidden');
-  scaleUpBtn.classList.add('hidden');
 }
 
 function initThree(){
@@ -581,11 +569,11 @@ function yawFromCameraToPosition(pos){
   return modelYaw;
 }
 
-function composeBagMatrix(pos, yaw, scale){
+function composeBagMatrix(pos, yaw){
   const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw, 0));
-  const scaleV = new THREE.Vector3(scale, scale, scale);
   const out = new THREE.Matrix4();
-  out.compose(pos, quat, scaleV);
+  // Escala fixa: o produto sempre mantém o tamanho real do GLB.
+  out.compose(pos, quat, new THREE.Vector3(1, 1, 1));
   return out;
 }
 
@@ -594,7 +582,7 @@ function poseOnSurface(hitMatrix){
   const normal = new THREE.Vector3(0,1,0).applyQuaternion(_q).normalize();
   const pos = _p.clone().addScaledVector(normal, SURFACE_OFFSET);
   const yaw = bagPlaced ? modelYaw : yawFromCameraToPosition(pos);
-  return composeBagMatrix(pos, yaw, modelScaleMultiplier);
+  return composeBagMatrix(pos, yaw);
 }
 
 function placeBagFromMatrix(matrix){
@@ -611,11 +599,11 @@ function placeBagFromMatrix(matrix){
   const e = new THREE.Euler().setFromQuaternion(_q, 'YXZ');
   modelYaw = e.y;
 
-  bagModel.matrix.copy(composeBagMatrix(placedPosition, modelYaw, modelScaleMultiplier));
+  bagModel.matrix.copy(composeBagMatrix(placedPosition, modelYaw));
   bagPlaced = true;
   showModelControls();
   updateShadowPlane();
-  setStatus('Bolsa posicionada — arraste com 1 dedo, gire/escale com 2 dedos');
+  setStatus('Bolsa posicionada — arraste com 1 dedo, gire com 2 dedos');
   toast('Bolsa posicionada em AR');
   DBG.push('bolsa FIXADA na superfície', 'ok');
 }
@@ -631,7 +619,7 @@ function onSelect(){
 
 function updatePlacedModelTransformOnly(){
   if (!bagModel || !bagPlaced) return;
-  bagModel.matrix.copy(composeBagMatrix(placedPosition, modelYaw, modelScaleMultiplier));
+  bagModel.matrix.copy(composeBagMatrix(placedPosition, modelYaw));
   updateShadowPlane();
 }
 
@@ -641,7 +629,7 @@ function updateShadowPlane(){
   shadowPlane.position.copy(placedPosition);
   shadowPlane.position.y += 0.001;
   shadowPlane.rotation.set(-Math.PI / 2, 0, 0);
-  const base = Math.max(modelSize.width, modelSize.depth, 0.4) * SHADOW_SIZE_MULTIPLIER * modelScaleMultiplier;
+  const base = Math.max(modelSize.width, modelSize.depth, 0.4) * SHADOW_SIZE_MULTIPLIER ;
   shadowPlane.scale.setScalar(base / shadowPlane.geometry.parameters.width);
 }
 
@@ -705,7 +693,6 @@ gestureLayer.addEventListener('pointerdown', (e)=>{
       dist: dist2D(a,b),
       angle: angle2D(a,b),
       yaw: modelYaw,
-      scale: modelScaleMultiplier,
     };
   }
 }, { passive:false });
@@ -739,8 +726,6 @@ gestureLayer.addEventListener('pointermove', (e)=>{
 
     if (Math.abs(d - pinchStart.dist) > 3 || Math.abs(ang - pinchStart.angle) > 0.02) gestureMoved = true;
 
-    const scaleRatio = d / Math.max(1, pinchStart.dist);
-    modelScaleMultiplier = Math.min(2.5, Math.max(0.35, pinchStart.scale * scaleRatio));
     modelYaw = pinchStart.yaw - (ang - pinchStart.angle);
     updatePlacedModelTransformOnly();
   }
@@ -757,7 +742,9 @@ gestureLayer.addEventListener('pointerup', (e)=>{
     singleStart = null;
     pinchStart = null;
 
-    if (wasTap) onSelect();
+    // Depois que a bolsa foi criada, tocar/arrastar não deve reposicionar no reticle verde.
+    // Para reposicionar por hit-test, use o botão Reposicionar primeiro.
+    if (wasTap && !bagPlaced) onSelect();
     return;
   }
 
@@ -845,13 +832,16 @@ function onXRFrame(timestamp, frame){
 
   if (surfaceHit){
     const surfacePose = poseOnSurface(surfaceHit);
-    reticle.visible = true;
     reticle.matrix.copy(surfacePose);
     if (!bagPlaced){
+      reticle.visible = true;
       footprintPreview.visible = true;
       footprintPreview.matrix.copy(surfacePose);
       setStatus('Superfície encontrada — toque para posicionar a bolsa');
     } else {
+      // Depois de posicionar, a mira verde fica oculta para evitar confusão;
+      // a interação passa a ser apenas no modelo já criado.
+      reticle.visible = false;
       footprintPreview.visible = false;
     }
   } else {
